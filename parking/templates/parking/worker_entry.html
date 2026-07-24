@@ -1,0 +1,193 @@
+{% extends 'parking/base.html' %}
+{% load static %}
+
+{% block title %}Worker Entrance Check-In Gate | Grand Mall SmartPark{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
+    <div>
+        <div class="badge badge-success" style="font-size: 0.85rem; margin-bottom: 0.5rem;">GATEKEEPER TERMINAL</div>
+        <h1 style="font-size: 2.2rem;">Entrance Gate: Vehicle Entry & Slot Registration</h1>
+        <p style="color: var(--text-secondary); font-size: 0.95rem;">When a car enters the mall parking lot, register vehicle details and assign a slot to mark it <strong>OCCUPIED</strong> in PostgreSQL.</p>
+    </div>
+    
+    <div class="glass-panel" style="padding: 1rem 1.5rem; text-align: center; border-color: rgba(16, 185, 129, 0.3);">
+        <div style="font-size: 1.6rem; font-weight: 800; color: #10b981;">{{ available_slots.count }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">Free Slots Available</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+    
+    <!-- Entry Registration Form -->
+    <div class="glass-panel" style="padding: 2rem;">
+        <h2 style="font-size: 1.5rem; margin-bottom: 1.5rem;">🚘 Arriving Vehicle Details</h2>
+        
+        <form id="workerEntryForm">
+            <div class="form-group">
+                <label class="form-label">Vehicle License Plate Number *</label>
+                <input type="text" id="entryVehicleNumber" class="form-control" placeholder="e.g. KA-05-EV-9021" required style="font-size: 1.2rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--primary);">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Vehicle Type</label>
+                    <select id="entryVehicleType" class="form-control">
+                        <option value="Sedan">Sedan / Hatchback</option>
+                        <option value="SUV">SUV / Truck</option>
+                        <option value="EV">Electric Vehicle (EV)</option>
+                        <option value="Bike">Motorcycle / Scooter</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Driver Name (Optional)</label>
+                    <input type="text" id="entryDriverName" class="form-control" placeholder="Walk-in Visitor">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Assign Parking Slot *</label>
+                <select id="entrySlotId" class="form-control" required style="font-size: 1.05rem; font-weight: 600;">
+                    <option value="">-- Select an Available Slot --</option>
+                    {% for slot in available_slots %}
+                    <option value="{{ slot.id }}">
+                        Slot {{ slot.slot_number }} &bull; {{ slot.floor }} ({{ slot.get_slot_type_display }}) - ₹{{ slot.effective_hourly_rate }}/hr
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px dashed rgba(16, 185, 129, 0.4); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+                <div style="font-size: 0.85rem; color: #10b981; font-weight: 600; margin-bottom: 0.25rem;">AUTOMATED ACTION</div>
+                <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">
+                    Submitting will record entry timestamp in PostgreSQL database and automatically set the slot status to <strong style="color: #ef4444;">OCCUPIED</strong>.
+                </p>
+            </div>
+
+            <button type="submit" id="btnRegisterEntry" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.9rem; font-size: 1.1rem;">
+                🟢 Register Entry & Mark Slot OCCUPIED
+            </button>
+        </form>
+    </div>
+
+    <!-- Quick Slot Selector Grid -->
+    <div class="glass-panel" style="padding: 2rem;">
+        <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">Available Slots Quick Picker</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Click any free slot to quick-select it into the entry form above.</p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.75rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
+            {% for slot in available_slots %}
+            <div onclick="quickSelectSlot('{{ slot.id }}')" class="slot-card AVAILABLE" style="cursor: pointer; padding: 0.65rem;">
+                <div class="slot-num" style="font-size: 1rem;">{{ slot.slot_number }}</div>
+                <div class="slot-type-badge">{{ slot.floor }}</div>
+                <div class="slot-price">₹{{ slot.effective_hourly_rate }}/hr</div>
+            </div>
+            {% empty %}
+            <div style="grid-column: 1/-1; text-align: center; color: #ef4444; padding: 2rem;">
+                ⚠️ Parking Lot Full! No Available Slots.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<!-- Entry Success Ticket Slip Modal -->
+<div id="entryTicketModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 2000; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="glass-panel" style="max-width: 480px; width: 100%; padding: 2rem; border-color: rgba(16, 185, 129, 0.4);">
+        <div style="text-align: center; font-size: 2.5rem; margin-bottom: 0.5rem;">🎟️</div>
+        <h2 style="text-align: center; font-size: 1.6rem; margin-bottom: 0.5rem;">Entry Pass Registered!</h2>
+        <p style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Database updated & slot status set to <strong>OCCUPIED</strong>.</p>
+
+        <div class="ticket-card" style="margin-bottom: 1.5rem;">
+            <div class="ticket-header">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">TICKET ID</div>
+                    <div id="ticketModalId" style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">PK-XXXX</div>
+                </div>
+                <span class="badge badge-danger">OCCUPIED</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">VEHICLE PLATE</div>
+                    <div id="ticketModalPlate" style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary);">KA-05-XX-0000</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">ASSIGNED SLOT</div>
+                    <div id="ticketModalSlot" style="font-weight: 700; font-size: 1.2rem; color: #10b981;">A-101</div>
+                </div>
+            </div>
+
+            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                🕒 <strong>Entry Timestamp:</strong> <span id="ticketModalEntryTime">-</span>
+            </div>
+
+            <div id="ticketModalBarcode" class="barcode-visual">|||| |||| ||||</div>
+        </div>
+
+        <button onclick="window.location.reload()" class="btn-primary" style="width: 100%; justify-content: center;">
+            Register Next Arriving Car &rarr;
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function quickSelectSlot(slotId) {
+    document.getElementById('entrySlotId').value = slotId;
+}
+
+document.getElementById('workerEntryForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const slotId = document.getElementById('entrySlotId').value;
+    const vehicleNumber = document.getElementById('entryVehicleNumber').value;
+    const vehicleType = document.getElementById('entryVehicleType').value;
+    const driverName = document.getElementById('entryDriverName').value;
+
+    if (!slotId || !vehicleNumber) {
+        alert('Please fill vehicle plate and select a slot.');
+        return;
+    }
+
+    const btn = document.getElementById('btnRegisterEntry');
+    btn.disabled = true;
+    btn.textContent = 'Saving to PostgreSQL...';
+
+    try {
+        const res = await fetch('/api/worker/checkin/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                slot_id: slotId,
+                vehicle_number: vehicleNumber,
+                vehicle_type: vehicleType,
+                driver_name: driverName
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            document.getElementById('ticketModalId').textContent = data.booking_id;
+            document.getElementById('ticketModalPlate').textContent = vehicleNumber;
+            document.getElementById('ticketModalSlot').textContent = data.slot_number;
+            document.getElementById('ticketModalEntryTime').textContent = data.entry_time;
+            document.getElementById('ticketModalBarcode').textContent = `||| ${data.qr_token} |||`;
+            document.getElementById('entryTicketModal').style.display = 'flex';
+        } else {
+            alert(`Error: ${data.message}`);
+            btn.disabled = false;
+            btn.textContent = '🟢 Register Entry & Mark Slot OCCUPIED';
+        }
+    } catch (err) {
+        alert('Failed to connect to parking server.');
+        btn.disabled = false;
+        btn.textContent = '🟢 Register Entry & Mark Slot OCCUPIED';
+    }
+});
+</script>
+{% endblock %}

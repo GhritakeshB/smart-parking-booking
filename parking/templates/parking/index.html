@@ -1,0 +1,90 @@
+{% extends 'parking/base.html' %}
+{% load static %}
+
+{% block title %}Grand Shopping Mall Smart Parking Deck | Live Slot Monitor{% endblock %}
+
+{% block content %}
+<input type="hidden" id="locationSlug" value="{{ mall.slug }}">
+
+<!-- Hero Section -->
+<section class="hero-section glass-panel">
+    <div class="badge badge-primary" style="margin-bottom: 0.5rem;">🏬 GRAND SHOPPING MALL PARKING</div>
+    <h1 class="hero-title">Mall <span>Parking Slot</span> Board</h1>
+    <p class="hero-subtitle">Real-time parking floor availability for Grand Shopping Mall. 100% of slots initialized to <strong>FREE (AVAILABLE)</strong>.</p>
+
+    <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap;">
+        <a href="{% url 'worker_entry' %}" class="btn-primary" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); font-size: 1.1rem; padding: 0.8rem 1.8rem;">
+            🟢 Worker Entrance Check-In (Car Enters &rarr; Mark OCCUPIED)
+        </a>
+        <a href="{% url 'worker_exit' %}" class="btn-primary" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); font-size: 1.1rem; padding: 0.8rem 1.8rem;">
+            🔴 Admin Exit Check-Out (Car Exits &rarr; Mark FREE)
+        </a>
+    </div>
+</section>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card glass-panel">
+        <div class="stat-icon green">🟢</div>
+        <div>
+            <div class="stat-value" style="color: #10b981;">{{ available_slots }}</div>
+            <div class="stat-label">Free Available Slots</div>
+        </div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-icon purple">🔴</div>
+        <div>
+            <div class="stat-value" style="color: #ef4444;">{{ occupied_slots }}</div>
+            <div class="stat-label">Occupied (Cars Parked)</div>
+        </div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-icon blue">⚡</div>
+        <div>
+            <div class="stat-value">{{ total_slots }}</div>
+            <div class="stat-label">Total Managed Slots</div>
+        </div>
+    </div>
+</div>
+
+<!-- Matrix Header Filters -->
+<div class="matrix-header glass-panel">
+    <div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; font-weight: 600;">FILTER FLOOR:</div>
+        <div class="filter-tabs">
+            <button class="filter-btn floor-filter-btn active" data-floor="">All Floors</button>
+            {% for floor in floors %}
+            <button class="filter-btn floor-filter-btn" data-floor="{{ floor }}">{{ floor }}</button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; font-weight: 600;">FILTER SLOT TYPE:</div>
+        <div class="filter-tabs">
+            <button class="filter-btn type-filter-btn active" data-type="">All Types</button>
+            <button class="filter-btn type-filter-btn" data-type="STANDARD">Standard</button>
+            <button class="filter-btn type-filter-btn" data-type="EV">⚡ EV Charging</button>
+            <button class="filter-btn type-filter-btn" data-type="SUV">🚙 SUV</button>
+            <button class="filter-btn type-filter-btn" data-type="VIP">👑 VIP</button>
+        </div>
+    </div>
+</div>
+
+<!-- Full-Width Floor Map Grid -->
+<div class="slot-container glass-panel" style="margin-bottom: 2rem;">
+    <div class="slot-legend">
+        <div class="legend-item"><div class="legend-dot available"></div> 🟢 FREE (AVAILABLE)</div>
+        <div class="legend-item"><div class="legend-dot occupied"></div> 🔴 OCCUPIED (CAR PARKED)</div>
+        <div class="legend-item"><div class="legend-dot ev"></div> ⚡ EV CHARGING HUB</div>
+    </div>
+
+    <div id="slotsGridContainer" class="slots-grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1.25rem;">
+        <!-- Dynamic Green Slot Cards rendered via JavaScript -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'parking/js/booking.js' %}"></script>
+{% endblock %}

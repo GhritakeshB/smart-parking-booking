@@ -1,0 +1,38 @@
+{% extends 'parking/base.html' %}
+{% load static %}
+
+{% block title %}Register Worker Account | Grand Mall SmartPark{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px; margin: 2.5rem auto;">
+    <div class="glass-panel" style="padding: 2.5rem; border-color: rgba(16, 185, 129, 0.3);">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div class="brand-icon" style="margin: 0 auto 1rem auto; width: 60px; height: 60px; font-size: 2rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">👷</div>
+            <h1 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Register Gate Worker</h1>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Create a new worker account to manage vehicle entrance check-in and checkout.</p>
+        </div>
+
+        <form method="POST" action="{% url 'register' %}">
+            {% csrf_token %}
+
+            {% for field in form %}
+            <div class="form-group">
+                <label class="form-label">{{ field.label }}</label>
+                <input type="{{ field.field.widget.input_type|default:'text' }}" name="{{ field.name }}" class="form-control" placeholder="{{ field.label }}" required style="font-size: 1rem;">
+                {% if field.help_text %}
+                <small style="display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">{{ field.help_text|safe }}</small>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1.05rem; margin-top: 1rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                👷 Create Worker Account & Sign In
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); font-size: 0.9rem; color: var(--text-secondary);">
+            Already have an account? <a href="{% url 'login' %}" style="color: var(--primary); text-decoration: none; font-weight: 600;">Sign In</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

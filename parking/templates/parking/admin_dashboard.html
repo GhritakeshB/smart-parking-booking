@@ -1,0 +1,180 @@
+{% extends 'parking/base.html' %}
+{% load static %}
+
+{% block title %}Operator Analytics & User Management | Grand Mall SmartPark{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
+    <div>
+        <div class="badge badge-primary" style="margin-bottom: 0.5rem;">ADMIN CONTROL PANEL</div>
+        <h1 style="font-size: 2rem;">Operator Analytics & User/Admin Management</h1>
+        <p style="color: var(--text-secondary); font-size: 0.95rem;">Add workers or 2nd Admins, monitor live occupancy, and track revenue.</p>
+    </div>
+    
+    <div>
+        <a href="/admin/" target="_blank" class="btn-primary">
+            🛡️ Open Full Django Admin
+        </a>
+    </div>
+</div>
+
+<!-- Operator Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card glass-panel">
+        <div class="stat-icon blue">📊</div>
+        <div>
+            <div class="stat-value" style="color: var(--primary);">{{ occupancy_pct }}%</div>
+            <div class="stat-label">Global Occupancy Rate</div>
+        </div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-icon green">🟢</div>
+        <div>
+            <div class="stat-value" style="color: #10b981;">{{ available_slots }}</div>
+            <div class="stat-label">Free Available Slots</div>
+        </div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-icon purple">🔴</div>
+        <div>
+            <div class="stat-value" style="color: #ef4444;">{{ occupied_slots }}</div>
+            <div class="stat-label">Occupied / In Use</div>
+        </div>
+    </div>
+    <div class="stat-card glass-panel">
+        <div class="stat-icon amber">💰</div>
+        <div>
+            <div class="stat-value" style="color: #f59e0b;">₹{{ total_revenue }}</div>
+            <div class="stat-label">Total Revenue Collected</div>
+        </div>
+    </div>
+</div>
+
+<!-- Grid Layout: Add User Form + User List -->
+<div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 2rem; margin-bottom: 2.5rem;">
+    
+    <!-- Admin User Creator Form -->
+    <div class="glass-panel" style="padding: 2rem; border-color: rgba(0, 242, 254, 0.4);">
+        <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: var(--primary);">👤 Add New User / 2nd Admin</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Create new accounts and select role: <strong>Worker</strong> (Gatekeeper) or <strong>Admin</strong> (Full System Access).</p>
+
+        <form method="POST" action="{% url 'admin_dashboard' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="create_worker">
+
+            <div class="form-group">
+                <label class="form-label">Full Name (Optional)</label>
+                <input type="text" name="worker_name" class="form-control" placeholder="e.g. Sarah Jenkins">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Assign Username *</label>
+                <input type="text" name="worker_username" class="form-control" placeholder="e.g. admin2 or worker_sarah" required style="font-weight: 600;">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Assign Password *</label>
+                <input type="password" name="worker_password" class="form-control" placeholder="e.g. password123" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">User Account Role *</label>
+                <select name="user_role" class="form-control" style="font-weight: 700; color: var(--primary);">
+                    <option value="worker">🔵 Worker (Gatekeeper Only - No Analytics)</option>
+                    <option value="admin">👑 2nd Admin (Full Admin Privileges & Analytics)</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; margin-top: 0.5rem;">
+                ➕ Create Account & Assign Role
+            </button>
+        </form>
+    </div>
+
+    <!-- Active Users List -->
+    <div class="glass-panel" style="padding: 2rem;">
+        <h2 style="font-size: 1.5rem; margin-bottom: 1rem;">System Users & Admins</h2>
+        
+        <div style="max-height: 380px; overflow-y: auto;">
+            <table class="custom-table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Date Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in all_users %}
+                    <tr>
+                        <td><strong style="color: var(--primary);">{{ u.username }}</strong></td>
+                        <td>{{ u.first_name|default:u.username }}</td>
+                        <td>
+                            {% if u.is_superuser %}
+                                <span class="badge badge-primary" style="background: rgba(0,242,254,0.15); color: #00f2fe;">👑 ADMIN</span>
+                            {% elif u.is_staff %}
+                                <span class="badge badge-warning">🛡️ STAFF</span>
+                            {% else %}
+                                <span class="badge badge-success">🔵 WORKER</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size: 0.85rem; color: var(--text-secondary);">{{ u.date_joined|date:"d M Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                            No additional users found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Recent Bookings Table -->
+<h2 style="font-size: 1.5rem; margin-bottom: 1.25rem;">Live Gate Parking Stream</h2>
+<div class="glass-panel" style="overflow-x: auto; padding: 1rem;">
+    <table class="custom-table">
+        <thead>
+            <tr>
+                <th>Booking ID</th>
+                <th>Driver / Gate Log</th>
+                <th>Vehicle No.</th>
+                <th>Slot Number</th>
+                <th>Entry / Exit Time</th>
+                <th>Total Fee</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in recent_bookings %}
+            <tr>
+                <td><strong style="color: var(--primary);">{{ b.booking_id }}</strong></td>
+                <td>{{ b.driver_name }} ({{ b.driver_phone }})</td>
+                <td><span style="font-family: monospace; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">{{ b.vehicle_number }}</span></td>
+                <td><strong>Slot {{ b.slot.slot_number }}</strong> ({{ b.slot.floor }})</td>
+                <td style="font-size: 0.85rem; color: var(--text-secondary);">{{ b.start_time|date:"H:i" }} &rarr; {{ b.end_time|date:"H:i" }}</td>
+                <td><strong style="color: #10b981;">₹{{ b.total_cost }}</strong></td>
+                <td>
+                    {% if b.status == 'ACTIVE' %}
+                        <span class="badge badge-danger">OCCUPIED</span>
+                    {% elif b.status == 'COMPLETED' %}
+                        <span class="badge badge-success">RELEASED FREE</span>
+                    {% else %}
+                        <span class="badge badge-primary">CANCELLED</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; color: var(--text-secondary);">No parking records in database yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

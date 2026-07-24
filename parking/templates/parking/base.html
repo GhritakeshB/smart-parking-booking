@@ -1,0 +1,75 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Grand Shopping Mall Smart Parking Management{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom Glassmorphic Stylesheet -->
+    <link rel="stylesheet" href="{% static 'parking/css/styles.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="{% url 'index' %}" class="brand-logo">
+                <div class="brand-icon">🏬</div>
+                <div class="brand-name">Grand Mall <span>SmartPark</span></div>
+            </a>
+            
+            <ul class="nav-links">
+                {% if user.is_authenticated %}
+                    <li><a href="{% url 'index' %}" class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}">Live Slot Board</a></li>
+                    <li><a href="{% url 'worker_entry' %}" class="nav-link {% if request.resolver_match.url_name == 'worker_entry' %}active{% endif %}" style="color: #10b981; font-weight: 600;">🟢 Worker Check-In Gate</a></li>
+                    <li><a href="{% url 'worker_exit' %}" class="nav-link {% if request.resolver_match.url_name == 'worker_exit' %}active{% endif %}" style="color: #ef4444; font-weight: 600;">🔴 Admin Check-Out Gate</a></li>
+                    
+                    {% if user.is_staff or user.is_superuser %}
+                        <!-- ADMIN ONLY LINKS -->
+                        <li><a href="{% url 'admin_dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}" style="color: #00f2fe; font-weight: 600;">📊 Operator Analytics & Workers</a></li>
+                        <li><a href="/admin/" target="_blank" class="btn-secondary">🛡️ Django Admin</a></li>
+                    {% endif %}
+
+                    <li style="display: flex; align-items: center; gap: 0.75rem; margin-left: 1rem;">
+                        <span class="badge badge-primary" style="font-size: 0.85rem;">
+                            👤 {{ user.username }} {% if user.is_superuser %}(ADMIN){% else %}(WORKER){% endif %}
+                        </span>
+                        <a href="{% url 'logout' %}" class="btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; color: #ef4444;">Logout</a>
+                    </li>
+                {% else %}
+                    <li><a href="{% url 'login' %}" class="btn-primary">Sign In / Login</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Django Messages Banner -->
+    {% if messages %}
+    <div style="max-width: 1300px; margin: 1rem auto 0 auto; padding: 0 1.5rem;">
+        {% for message in messages %}
+        <div class="glass-panel" style="padding: 1rem 1.5rem; margin-bottom: 0.5rem; border-color: {% if message.tags == 'error' %}#ef4444{% else %}#10b981{% endif %}; color: {% if message.tags == 'error' %}#ef4444{% else %}#10b981{% endif %};">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Main Content -->
+    <main class="main-wrapper">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="nav-container">
+            <p>&copy; 2026 Grand Shopping Mall Smart Parking Management &bull; Python Django + PostgreSQL</p>
+        </div>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,88 @@
+{% extends 'parking/base.html' %}
+{% load static %}
+
+{% block title %}Admin Exit Gate Check-Out | Grand Mall SmartPark{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
+    <div>
+        <div class="badge badge-danger" style="font-size: 0.85rem; margin-bottom: 0.5rem;">EXIT GATE TERMINAL</div>
+        <h1 style="font-size: 2.2rem;">Admin Exit Gate: Vehicle Checkout & Slot Release</h1>
+        <p style="color: var(--text-secondary); font-size: 0.95rem;">When a vehicle leaves the mall parking lot, process checkout to calculate final fee and reset slot status to <strong>FREE (AVAILABLE)</strong> in PostgreSQL.</p>
+    </div>
+    
+    <div class="glass-panel" style="padding: 1rem 1.5rem; text-align: center; border-color: rgba(239, 68, 68, 0.3);">
+        <div style="font-size: 1.6rem; font-weight: 800; color: #ef4444;">{{ active_bookings.count }}</div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">Currently Occupied Slots</div>
+    </div>
+</div>
+
+<!-- Active Occupied Vehicles Grid -->
+<h2 style="font-size: 1.5rem; margin-bottom: 1.25rem;">Vehicles Currently Parked in Mall</h2>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1.5rem;">
+    {% for booking in active_bookings %}
+    <div class="ticket-card" style="border-color: rgba(239, 68, 68, 0.3);">
+        <div class="ticket-header">
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">SLOT NUMBER</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #ef4444;">Slot {{ booking.slot.slot_number }} ({{ booking.slot.floor }})</div>
+            </div>
+            <span class="badge badge-danger">OCCUPIED</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">VEHICLE LICENSE PLATE</div>
+                <div style="font-weight: 800; font-size: 1.1rem; color: var(--primary);">{{ booking.vehicle_number }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">DRIVER / TYPE</div>
+                <div style="font-weight: 600; font-size: 0.95rem;">{{ booking.driver_name }} ({{ booking.vehicle_type }})</div>
+            </div>
+        </div>
+
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem; padding: 0.75rem; background: rgba(15,23,42,0.6); border-radius: 8px;">
+            🕒 <strong>Entry Time:</strong> {{ booking.start_time|date:"d M Y, H:i:s" }}<br>
+            💰 <strong>Hourly Rate:</strong> ₹{{ booking.slot.effective_hourly_rate }}/hr
+        </div>
+
+        <button onclick="processExitCheckout('{{ booking.booking_id }}', '{{ booking.slot.slot_number }}', '{{ booking.vehicle_number }}')" class="btn-primary" style="width: 100%; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            🚪 Process Exit & Mark Slot FREE
+        </button>
+    </div>
+    {% empty %}
+    <div class="glass-panel" style="grid-column: 1/-1; padding: 3rem; text-align: center;">
+        <p style="font-size: 1.2rem; color: var(--text-secondary);">No vehicles currently parked. All slots are FREE (AVAILABLE)!</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function processExitCheckout(bookingId, slotNum, plateNum) {
+    if (!confirm(`Confirm vehicle checkout for Plate ${plateNum} (Slot ${slotNum})?\nThis will calculate total fee and mark slot FREE in PostgreSQL.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/worker/checkout/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ booking_id: bookingId })
+        });
+
+        const res = await response.json();
+        if (res.status === 'success') {
+            alert(`✅ ${res.message}\nTotal Hours: ${res.total_hours} hrs | Total Fee: ₹${res.total_cost}`);
+            window.location.reload();
+        } else {
+            alert(`Error: ${res.message}`);
+        }
+    } catch (err) {
+        alert('Server error during exit checkout.');
+    }
+}
+</script>
+{% endblock %}

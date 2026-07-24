@@ -1,0 +1,47 @@
+{% extends 'parking/base.html' %}
+{% load static %}
+
+{% block title %}Sign In | Grand Mall SmartPark System{% endblock %}
+
+{% block content %}
+<div style="max-width: 450px; margin: 3rem auto;">
+    <div class="glass-panel" style="padding: 2.5rem; border-color: rgba(0, 242, 254, 0.3);">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div class="brand-icon" style="margin: 0 auto 1rem auto; width: 60px; height: 60px; font-size: 2rem;">🏬</div>
+            <h1 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Mall Gatekeeper Sign In</h1>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Sign in with your assigned worker or admin credentials.</p>
+        </div>
+
+        <form method="POST" action="{% url 'login' %}">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" placeholder="Enter assigned username" required autofocus style="font-size: 1rem;">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Enter assigned password" required style="font-size: 1rem;">
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem; font-size: 1.05rem; margin-top: 1rem;">
+                🔑 Sign In to Portal
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--glass-border); font-size: 0.85rem; color: var(--text-secondary);">
+            🔒 Worker credentials are created and managed directly by the Mall Administrator.
+        </div>
+    </div>
+
+    <!-- Quick Admin Info -->
+    <div class="glass-panel" style="padding: 1.25rem; margin-top: 1.5rem; font-size: 0.85rem;">
+        <div style="font-weight: 700; color: var(--primary); margin-bottom: 0.5rem;">🔑 ADMIN LOGIN:</div>
+        <div style="color: var(--text-secondary);">
+            User: <code style="color: #10b981;">admin</code> | Pass: <code style="color: #10b981;">adminpassword123</code><br>
+            <span style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">As Admin, you can add and assign passwords to new workers directly in the Operator Panel!</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

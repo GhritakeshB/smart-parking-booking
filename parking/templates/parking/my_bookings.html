@@ -1,0 +1,80 @@
+{% extends 'parking/base.html' %}
+{% load static %}
+
+{% block title %}My Parking Passes & Tickets | SmartPark Pro{% endblock %}
+
+{% block content %}
+<div class="glass-panel" style="padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
+    <div>
+        <h1 style="font-size: 2rem;">My Parking Passes & Tickets</h1>
+        <p style="color: var(--text-secondary); font-size: 0.95rem;">Access active digital entry passes, view session timers, or checkout early.</p>
+    </div>
+    
+    <form method="GET" action="{% url 'my_bookings' %}" style="display: flex; gap: 0.5rem; max-width: 400px; width: 100%;">
+        <input type="text" name="vehicle" value="{{ search_query }}" class="form-control" placeholder="Search vehicle plate or ticket ID..." style="text-transform: uppercase;">
+        <button type="submit" class="btn-primary">Search</button>
+    </form>
+</div>
+
+<h2 style="font-size: 1.5rem; margin-bottom: 1.25rem;">Active & Recent Bookings</h2>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 1.5rem;">
+    {% for booking in bookings %}
+    <div class="ticket-card">
+        <div class="ticket-header">
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">BOOKING ID</div>
+                <div style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">{{ booking.booking_id }}</div>
+            </div>
+            {% if booking.status == 'ACTIVE' %}
+                <span class="badge badge-success">ACTIVE SESSION</span>
+            {% elif booking.status == 'COMPLETED' %}
+                <span class="badge badge-primary">COMPLETED</span>
+            {% else %}
+                <span class="badge badge-danger">CANCELLED</span>
+            {% endif %}
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">LOCATION</div>
+                <div style="font-weight: 600; font-size: 0.95rem;">{{ booking.slot.location.name }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">SLOT NUMBER</div>
+                <div style="font-weight: 700; font-size: 1.1rem; color: var(--primary);">{{ booking.slot.slot_number }} ({{ booking.slot.floor }})</div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">VEHICLE NUMBER</div>
+                <div style="font-weight: 700; font-size: 0.95rem;">{{ booking.vehicle_number }}</div>
+            </div>
+            <div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">TOTAL CHARGE</div>
+                <div style="font-weight: 700; font-size: 1.1rem; color: #10b981;">₹{{ booking.total_cost }}</div>
+            </div>
+        </div>
+
+        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; padding: 0.5rem; background: rgba(15,23,42,0.6); border-radius: 6px;">
+            🕒 <strong>Start:</strong> {{ booking.start_time|date:"d M Y, H:i" }} | <strong>End:</strong> {{ booking.end_time|date:"d M Y, H:i" }}
+        </div>
+
+        <div class="barcode-visual">|||| || {{ booking.qr_token|truncatechars:12 }} ||||</div>
+
+        {% if booking.status == 'ACTIVE' %}
+        <button onclick="checkoutBooking('{{ booking.booking_id }}')" class="btn-secondary" style="width: 100%; margin-top: 1.25rem; justify-content: center; background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: #ef4444;">
+            🚪 Exit & Checkout Slot
+        </button>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="glass-panel" style="grid-column: 1/-1; padding: 3rem; text-align: center;">
+        <p style="font-size: 1.1rem; color: var(--text-secondary);">No parking passes found.</p>
+        <a href="{% url 'index' %}" class="btn-primary" style="margin-top: 1rem; display: inline-block;">Find & Reserve a Parking Slot</a>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'parking/js/booking.js' %}"></script>
+{% endblock %}

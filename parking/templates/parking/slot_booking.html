@@ -1,0 +1,178 @@
+{% extends 'parking/base.html' %}
+{% load static %}
+
+{% block title %}Book Parking Slot - {{ location.name }} | SmartPark Pro{% endblock %}
+
+{% block content %}
+<input type="hidden" id="locationSlug" value="{{ location.slug }}">
+
+<!-- Location Header Banner -->
+<div class="glass-panel" style="padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
+    <div>
+        <a href="{% url 'index' %}" style="color: var(--primary); text-decoration: none; font-size: 0.9rem; font-weight: 600;">&larr; Back to all locations</a>
+        <h1 style="font-size: 2.2rem; margin-top: 0.5rem;">{{ location.name }}</h1>
+        <p style="color: var(--text-secondary); font-size: 0.95rem;">📍 {{ location.address }}, {{ location.city }} &bull; Base Rate: <strong style="color: var(--primary);">₹{{ location.hourly_rate }}/hr</strong></p>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+        <div class="glass-panel" style="padding: 0.75rem 1.25rem; text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: 700; color: #10b981;">{{ location.available_slots_count }}</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">Available Spots</div>
+        </div>
+        <div class="glass-panel" style="padding: 0.75rem 1.25rem; text-align: center;">
+            <div style="font-size: 1.4rem; font-weight: 700; color: var(--primary);">{{ location.occupancy_rate }}%</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary);">Occupancy</div>
+        </div>
+    </div>
+</div>
+
+<!-- Matrix Header Filters -->
+<div class="matrix-header glass-panel">
+    <!-- Floor Filter Tabs -->
+    <div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; font-weight: 600;">SELECT FLOOR:</div>
+        <div class="filter-tabs">
+            <button class="filter-btn floor-filter-btn active" data-floor="">All Floors</button>
+            {% for floor in floors %}
+            <button class="filter-btn floor-filter-btn" data-floor="{{ floor }}">{{ floor }}</button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Slot Type Filters -->
+    <div>
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; font-weight: 600;">SLOT TYPE:</div>
+        <div class="filter-tabs">
+            <button class="filter-btn type-filter-btn active" data-type="">All Types</button>
+            <button class="filter-btn type-filter-btn" data-type="STANDARD">Standard</button>
+            <button class="filter-btn type-filter-btn" data-type="EV">⚡ EV Charging</button>
+            <button class="filter-btn type-filter-btn" data-type="SUV">🚙 SUV</button>
+            <button class="filter-btn type-filter-btn" data-type="VIP">👑 VIP</button>
+        </div>
+    </div>
+</div>
+
+<!-- Grid Layout: Floor Map + Reservation Form -->
+<div class="slot-grid-layout">
+    
+    <!-- Floor Map Grid -->
+    <div class="slot-container glass-panel">
+        <div class="slot-legend">
+            <div class="legend-item"><div class="legend-dot available"></div> Available</div>
+            <div class="legend-item"><div class="legend-dot occupied"></div> Occupied</div>
+            <div class="legend-item"><div class="legend-dot reserved"></div> Reserved</div>
+            <div class="legend-item"><div class="legend-dot ev"></div> EV Charging</div>
+        </div>
+
+        <div id="slotsGridContainer" class="slots-grid">
+            <!-- Dynamic Slot Cards rendered via JavaScript -->
+        </div>
+    </div>
+
+    <!-- Booking Reservation Summary Panel -->
+    <div class="booking-summary-panel glass-panel">
+        <h3 style="font-size: 1.4rem; margin-bottom: 1.25rem;">Slot Reservation</h3>
+
+        <form id="parkingBookingForm">
+            <input type="hidden" id="selectedSlotId" name="slot_id" value="">
+
+            <div class="form-group">
+                <label class="form-label">Selected Slot</label>
+                <div id="selectedSlotDisplay" style="font-size: 1.1rem; font-weight: 700; color: var(--primary); padding: 0.5rem 0;">
+                    Click any green available slot on the map
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Driver Full Name</label>
+                <input type="text" id="driverName" class="form-control" placeholder="e.g. Alex Mercer" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Contact Phone</label>
+                <input type="tel" id="driverPhone" class="form-control" placeholder="e.g. +91 98765 43210" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label class="form-label">Vehicle Plate No.</label>
+                    <input type="text" id="vehicleNumber" class="form-control" placeholder="KA-05-EV-9021" required style="text-transform: uppercase;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vehicle Type</label>
+                    <select id="vehicleType" class="form-control">
+                        <option value="Sedan">Sedan / Hatchback</option>
+                        <option value="SUV">SUV / Truck</option>
+                        <option value="EV">Electric Vehicle</option>
+                        <option value="Bike">Motorcycle</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Start Time</label>
+                <input type="datetime-local" id="startTime" class="form-control" value="{{ now_iso }}" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">End Time</label>
+                <input type="datetime-local" id="endTime" class="form-control" value="{{ default_end_iso }}" required>
+            </div>
+
+            <div class="price-summary-box">
+                <div class="price-row">
+                    <span>Estimated Duration</span>
+                    <span id="displayDurationHours">2.00 hrs</span>
+                </div>
+                <div class="price-row total">
+                    <span>Total Amount</span>
+                    <span id="displayTotalCost" style="color: var(--primary);">₹0.00</span>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBookingBtn" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.85rem;" disabled>
+                Confirm & Reserve Slot
+            </button>
+        </form>
+    </div>
+
+</div>
+
+<!-- Booking Confirmation Modal -->
+<div id="bookingSuccessModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 2000; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="glass-panel" style="max-width: 500px; width: 100%; padding: 2.5rem; text-align: center; border-color: rgba(0, 242, 254, 0.4);">
+        <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
+        <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Booking Confirmed!</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.95rem;">Your parking slot has been reserved successfully.</p>
+
+        <div class="ticket-card" style="text-align: left; margin-bottom: 1.5rem;">
+            <div class="ticket-header">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">TICKET NUMBER</div>
+                    <div id="modalTicketId" style="font-size: 1.2rem; font-weight: 700; color: var(--primary);">PK-XXXXXX</div>
+                </div>
+                <div class="badge badge-success">ACTIVE</div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">SLOT NUMBER</div>
+                    <div id="modalSlotNum" style="font-weight: 700; font-size: 1.1rem;">-</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">TOTAL AMOUNT</div>
+                    <div id="modalTotalCost" style="font-weight: 700; font-size: 1.1rem; color: #10b981;">₹0.00</div>
+                </div>
+            </div>
+            <div id="modalBarcode" class="barcode-visual">|||| ||| |||| |</div>
+        </div>
+
+        <div style="display: flex; gap: 1rem;">
+            <a href="{% url 'my_bookings' %}" class="btn-primary" style="flex: 1; justify-content: center;">View My Bookings & Pass</a>
+            <button onclick="window.location.reload()" class="btn-secondary">Book Another</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'parking/js/booking.js' %}"></script>
+{% endblock %}
