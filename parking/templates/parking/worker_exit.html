@@ -1,14 +1,14 @@
 {% extends 'parking/base.html' %}
 {% load static %}
 
-{% block title %}Admin Exit Gate Check-Out | Grand Mall SmartPark{% endblock %}
+{% block title %}Admin Exit Gate & Payment Gateway | Grand Mall SmartPark{% endblock %}
 
 {% block content %}
 <div class="glass-panel" style="padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
     <div>
-        <div class="badge badge-danger" style="font-size: 0.85rem; margin-bottom: 0.5rem;">EXIT GATE TERMINAL</div>
-        <h1 style="font-size: 2.2rem;">Admin Exit Gate: Vehicle Checkout & Slot Release</h1>
-        <p style="color: var(--text-secondary); font-size: 0.95rem;">When a vehicle leaves the mall parking lot, process checkout to calculate final fee and reset slot status to <strong>FREE (AVAILABLE)</strong> in PostgreSQL.</p>
+        <div class="badge badge-danger" style="font-size: 0.85rem; margin-bottom: 0.5rem;">EXIT GATE & PAYMENT TERMINAL</div>
+        <h1 style="font-size: 2.2rem;">Admin Exit Gate: Simulated Payment & Slot Checkout</h1>
+        <p style="color: var(--text-secondary); font-size: 0.95rem;">Select an exiting vehicle to launch the <strong>Fake Payment Gateway</strong> (Card, UPI QR, Cash, FastTag) and reset slot to <strong>FREE (AVAILABLE)</strong>.</p>
     </div>
     
     <div class="glass-panel" style="padding: 1rem 1.5rem; text-align: center; border-color: rgba(239, 68, 68, 0.3);">
@@ -47,8 +47,8 @@
             💰 <strong>Hourly Rate:</strong> ₹{{ booking.slot.effective_hourly_rate }}/hr
         </div>
 
-        <button onclick="processExitCheckout('{{ booking.booking_id }}', '{{ booking.slot.slot_number }}', '{{ booking.vehicle_number }}')" class="btn-primary" style="width: 100%; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-            🚪 Process Exit & Mark Slot FREE
+        <button onclick="openFakePaymentModal('{{ booking.booking_id }}', '{{ booking.slot.slot_number }}', '{{ booking.vehicle_number }}', '{{ booking.slot.effective_hourly_rate }}')" class="btn-primary" style="width: 100%; justify-content: center; background: linear-gradient(135deg, #10b981 0%, #059669 100%); font-size: 1.05rem;">
+            💳 Collect Payment & Process Exit
         </button>
     </div>
     {% empty %}
@@ -57,32 +57,150 @@
     </div>
     {% endfor %}
 </div>
+
+
+<!-- SIMULATED FAKE PAYMENT GATEWAY MODAL -->
+<div id="paymentGatewayModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(12px); z-index: 2500; align-items: center; justify-content: center; padding: 1rem;">
+    <div class="glass-panel" style="max-width: 520px; width: 100%; padding: 2.25rem; border-color: rgba(0, 242, 254, 0.4); box-shadow: 0 0 40px rgba(0, 242, 254, 0.2);">
+        
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem;">
+            <div>
+                <div class="badge badge-primary" style="font-size: 0.75rem;">SIMULATED PAYMENT GATEWAY</div>
+                <h2 style="font-size: 1.5rem; margin-top: 0.25rem;">Checkout & Payment</h2>
+            </div>
+            <button onclick="closePaymentModal()" style="background: transparent; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer;">&times;</button>
+        </div>
+
+        <input type="hidden" id="payModalBookingId" value="">
+
+        <!-- Details Summary -->
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem;">
+                <span style="color: var(--text-secondary);">Vehicle Plate:</span>
+                <strong id="payModalPlate" style="color: var(--primary); font-size: 1.1rem;">-</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.95rem;">
+                <span style="color: var(--text-secondary);">Slot Number:</span>
+                <strong id="payModalSlot" style="color: var(--text-primary);">-</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px dashed var(--glass-border); padding-top: 0.75rem; margin-top: 0.75rem; font-size: 1.25rem; font-weight: 700;">
+                <span>Total Amount Due:</span>
+                <span id="payModalAmount" style="color: #10b981;">₹0.00</span>
+            </div>
+        </div>
+
+        <!-- Select Fake Payment Method -->
+        <div class="form-group">
+            <label class="form-label" style="font-size: 0.9rem; font-weight: 700; margin-bottom: 0.75rem;">SELECT PAYMENT METHOD</label>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.5rem;">
+                <label class="glass-panel" style="padding: 0.9rem; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; border-color: rgba(0,242,254,0.3);">
+                    <input type="radio" name="fakeMethod" value="💳 Fake Credit/Debit Card" checked onclick="togglePaymentPreview('card')">
+                    <span style="font-size: 0.9rem; font-weight: 600;">💳 Card Pay</span>
+                </label>
+
+                <label class="glass-panel" style="padding: 0.9rem; display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                    <input type="radio" name="fakeMethod" value="📱 Fake UPI / GPay / PhonePe" onclick="togglePaymentPreview('upi')">
+                    <span style="font-size: 0.9rem; font-weight: 600;">📱 UPI QR Scan</span>
+                </label>
+
+                <label class="glass-panel" style="padding: 0.9rem; display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                    <input type="radio" name="fakeMethod" value="💵 Cash Received at Gate" onclick="togglePaymentPreview('cash')">
+                    <span style="font-size: 0.9rem; font-weight: 600;">💵 Gate Cash</span>
+                </label>
+
+                <label class="glass-panel" style="padding: 0.9rem; display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                    <input type="radio" name="fakeMethod" value="👛 FastTag / Digital Wallet" onclick="togglePaymentPreview('wallet')">
+                    <span style="font-size: 0.9rem; font-weight: 600;">👛 FastTag</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Fake Payment Visual Previews -->
+        <div id="cardPreview" style="background: rgba(0, 242, 254, 0.05); border: 1px dashed rgba(0, 242, 254, 0.3); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.85rem;">
+            💳 <strong>Card Payment:</strong> 4532 •••• •••• 8892 (Simulated Instant Clearance)
+        </div>
+
+        <div id="upiPreview" style="display: none; text-align: center; background: rgba(16, 185, 129, 0.05); border: 1px dashed rgba(16, 185, 129, 0.3); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <div style="font-family: monospace; font-size: 1rem; letter-spacing: 2px; color: #10b981; margin-bottom: 0.5rem;">[ 📲 SCAN FAKE QR TO PAY ]</div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary);">Simulates Instant UPI Auto-Approval</div>
+        </div>
+
+        <!-- Action Button -->
+        <button onclick="submitFakePayment()" id="btnSubmitPay" class="btn-primary" style="width: 100%; justify-content: center; padding: 0.9rem; font-size: 1.1rem; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            ✅ Complete Payment & Release Slot
+        </button>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-async function processExitCheckout(bookingId, slotNum, plateNum) {
-    if (!confirm(`Confirm vehicle checkout for Plate ${plateNum} (Slot ${slotNum})?\nThis will calculate total fee and mark slot FREE in PostgreSQL.`)) {
-        return;
+function openFakePaymentModal(bookingId, slotNum, plateNum, hourlyRate) {
+    document.getElementById('payModalBookingId').value = bookingId;
+    document.getElementById('payModalPlate').textContent = plateNum;
+    document.getElementById('payModalSlot').textContent = `Slot ${slotNum}`;
+    
+    // Estimate price (e.g. ₹50 or calculated)
+    document.getElementById('payModalAmount').textContent = `₹${(float(hourlyRate) * 1.5).toFixed(2)}`;
+    
+    document.getElementById('paymentGatewayModal').style.display = 'flex';
+}
+
+function closePaymentModal() {
+    document.getElementById('paymentGatewayModal').style.display = 'none';
+}
+
+function togglePaymentPreview(type) {
+    const card = document.getElementById('cardPreview');
+    const upi = document.getElementById('upiPreview');
+    if (type === 'card' || type === 'cash' || type === 'wallet') {
+        card.style.display = 'block';
+        upi.style.display = 'none';
+    } else if (type === 'upi') {
+        card.style.display = 'none';
+        upi.style.display = 'block';
     }
+}
+
+async function submitFakePayment() {
+    const bookingId = document.getElementById('payModalBookingId').value;
+    const selectedRadio = document.querySelector('input[name="fakeMethod"]:checked');
+    const paymentMethod = selectedRadio ? selectedRadio.value : 'Fake Payment';
+
+    const btn = document.getElementById('btnSubmitPay');
+    btn.disabled = true;
+    btn.textContent = 'Processing Simulated Payment...';
 
     try {
         const response = await fetch('/api/worker/checkout/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ booking_id: bookingId })
+            body: JSON.stringify({
+                booking_id: bookingId,
+                payment_method: paymentMethod
+            })
         });
 
         const res = await response.json();
         if (res.status === 'success') {
-            alert(`✅ ${res.message}\nTotal Hours: ${res.total_hours} hrs | Total Fee: ₹${res.total_cost}`);
+            alert(`🎉 ${res.message}\n\nTransaction Reference: ${res.transaction_id}\nPayment Method: ${res.payment_method}\nTotal Amount Paid: ₹${res.total_cost}`);
             window.location.reload();
         } else {
-            alert(`Error: ${res.message}`);
+            alert(`Payment Error: ${res.message}`);
+            btn.disabled = false;
+            btn.textContent = '✅ Complete Payment & Release Slot';
         }
     } catch (err) {
-        alert('Server error during exit checkout.');
+        alert('Server error during payment checkout.');
+        btn.disabled = false;
+        btn.textContent = '✅ Complete Payment & Release Slot';
     }
+}
+
+function float(val) {
+    return parseFloat(val) || 50.0;
 }
 </script>
 {% endblock %}

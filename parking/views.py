@@ -98,7 +98,6 @@ def worker_exit_view(request):
 @login_required(login_url='login')
 @user_passes_test(is_admin_user, login_url='index', redirect_field_name=None)
 def admin_dashboard_view(request):
-    # Handle Admin Creation of New Worker or 2nd Admin Account
     if request.method == 'POST' and 'action' in request.POST and request.POST['action'] == 'create_worker':
         worker_name = request.POST.get('worker_name', '').strip()
         worker_username = request.POST.get('worker_username', '').strip().lower()
@@ -169,6 +168,7 @@ def api_worker_checkin(request):
         driver_name = data.get('driver_name', 'Walk-in Driver').strip()
         driver_phone = data.get('driver_phone', 'N/A').strip()
         vehicle_type = data.get('vehicle_type', 'Sedan')
+        payment_method = data.get('payment_method', 'Cash at Gate (Simulated)')
 
         if not (slot_id and vehicle_number):
             return JsonResponse({'status': 'error', 'message': 'Please provide vehicle plate number and select a slot.'}, status=400)
@@ -197,16 +197,18 @@ def api_worker_checkin(request):
         slot.status = 'OCCUPIED'
         slot.save()
 
+        # Save simulated payment in PostgreSQL
         PaymentRecord.objects.create(
             booking=booking,
-            transaction_id=f"TXN-ENTRY-{secrets.token_hex(4).upper()}",
+            transaction_id=f"TXN-{secrets.token_hex(4).upper()}",
             amount=booking.total_cost,
-            payment_method='Gate Cash / Scanner'
+            payment_method=payment_method,
+            status='SUCCESS'
         )
 
         return JsonResponse({
             'status': 'success',
-            'message': f'Vehicle {vehicle_number} registered! Slot {slot.slot_number} is now marked OCCUPIED.',
+            'message': f'Vehicle {vehicle_number} registered! Slot {slot.slot_number} marked OCCUPIED.',
             'booking_id': booking.booking_id,
             'slot_number': slot.slot_number,
             'entry_time': booking.start_time.strftime('%Y-%m-%d %H:%M:%S'),
@@ -219,28 +221,18 @@ def api_worker_checkin(request):
 
 @csrf_exempt
 def api_worker_checkout(request):
-    """Admin/Worker Exit Gate Checkout: Sets Slot status = AVAILABLE (FREE) in PostgreSQL"""
+    """Admin/Worker Exit Gate Checkout: Simulates Payment & Sets Slot status = AVAILABLE (FREE) in PostgreSQL"""
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST method required'}, status=405)
 
     try:
         data = json.loads(request.body)
         booking_id = data.get('booking_id')
-        slot_id = data.get('slot_id')
+        payment_method = data.get('payment_method', 'Fake Card Payment (Simulated)')
 
-        booking = None
-        if booking_id:
-            booking = Booking.objects.filter(booking_id=booking_id, status='ACTIVE').first()
-        elif slot_id:
-            booking = Booking.objects.filter(slot_id=slot_id, status='ACTIVE').first()
-
+        booking = Booking.objects.filter(booking_id=booking_id, status='ACTIVE').first()
         if not booking:
-            if slot_id:
-                slot = get_object_or_404(ParkingSlot, pk=slot_id)
-                slot.status = 'AVAILABLE'
-                slot.save()
-                return JsonResponse({'status': 'success', 'message': f'Slot {slot.slot_number} marked FREE.'})
-            return JsonResponse({'status': 'error', 'message': 'No active occupied record found for this slot/vehicle.'}, status=404)
+            return JsonResponse({'status': 'error', 'message': 'Active occupied record not found.'}, status=404)
 
         now = timezone.now()
         booking.end_time = now
@@ -248,21 +240,43 @@ def api_worker_checkout(request):
         duration_seconds = (now - booking.start_time).total_seconds()
         hours = max(0.5, round(duration_seconds / 3600.0, 2))
         booking.total_hours = hours
-        booking.total_cost = round(hours * booking.slot.effective_hourly_rate, 2)
+        total_cost = round(hours * booking.slot.effective_hourly_rate, 2)
+        booking.total_cost = total_cost
         booking.status = 'COMPLETED'
         booking.save()
 
+        # Mark Slot FREE (AVAILABLE) in PostgreSQL
         slot = booking.slot
         slot.status = 'AVAILABLE'
         slot.save()
 
+        # Create/Update Payment Record in PostgreSQL
+        txn_id = f"TXN-SIM-{secrets.token_hex(5).upper()}"
+        payment, created = PaymentRecord.objects.get_or_create(
+            booking=booking,
+            defaults={
+                'transaction_id': txn_id,
+                'amount': total_cost,
+                'payment_method': payment_method,
+                'status': 'SUCCESS'
+            }
+        )
+        if not created:
+            payment.transaction_id = txn_id
+            payment.amount = total_cost
+            payment.payment_method = payment_method
+            payment.status = 'SUCCESS'
+            payment.save()
+
         return JsonResponse({
             'status': 'success',
-            'message': f'Vehicle {booking.vehicle_number} checked out! Slot {slot.slot_number} is now marked FREE (AVAILABLE).',
+            'message': f'Payment Successful! Vehicle {booking.vehicle_number} checked out. Slot {slot.slot_number} is now FREE.',
             'booking_id': booking.booking_id,
             'slot_number': slot.slot_number,
             'total_hours': float(hours),
-            'total_cost': float(booking.total_cost)
+            'total_cost': float(total_cost),
+            'transaction_id': txn_id,
+            'payment_method': payment_method
         })
 
     except Exception as e:
